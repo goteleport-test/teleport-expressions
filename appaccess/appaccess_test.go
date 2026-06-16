@@ -93,8 +93,8 @@ identity:
 			want: false,
 		},
 		{
-			name: "bare predicate form",
-			rule: "app_resources:\n  - pred: path.match(greedy())",
+			name: "where holds the whole predicate",
+			rule: "app_resources:\n  - where: path.match(greedy())",
 			in:   allowedInput,
 			want: true,
 		},

@@ -1,56 +1,66 @@
 [
   {
-    "name": "Match any path",
-    "rule": "app_resources:\n  - pred: path.match(greedy())",
-    "input": "request:\n  method: GET\n  path: /anything/here\nidentity:\n  name: bob"
+    "name": "1. Path prefix",
+    "rule": "app_resources:\n  - paths: [\"/api/**\"]",
+    "input": "request:\n  method: GET\n  path: /api/users\nidentity:\n  name: bob"
   },
   {
-    "name": "Exact path",
+    "name": "2. Path + method",
+    "rule": "app_resources:\n  - paths: [\"/api/**\"]\n    methods: [GET]",
+    "input": "request:\n  method: GET\n  path: /api/users\nidentity:\n  name: bob"
+  },
+  {
+    "name": "3. Exact path",
     "rule": "app_resources:\n  - paths: [\"/api/v4/health\"]",
     "input": "request:\n  method: GET\n  path: /api/v4/health\nidentity:\n  name: bob"
   },
   {
-    "name": "Method-scoped path + capture",
+    "name": "4. Capture a segment",
+    "rule": "app_resources:\n  - paths: [\"/api/v4/projects/{project}/**\"]",
+    "input": "request:\n  method: GET\n  path: /api/v4/projects/alpha/issues\nidentity:\n  name: bob"
+  },
+  {
+    "name": "5. Capture + method",
     "rule": "app_resources:\n  - paths: [\"/api/v4/projects/{project}/repository/**\"]\n    methods: [GET, HEAD]",
     "input": "request:\n  method: GET\n  path: /api/v4/projects/myproj/repository/tree\nidentity:\n  name: alice"
   },
   {
-    "name": "Capture checked against trait",
+    "name": "6. Capture checked against trait",
     "rule": "app_resources:\n  - paths: [\"/api/v4/projects/{project}/**\"]\n    methods: [GET]\n    where: contains(user.traits[\"allowed_projects\"], vars.project)",
     "input": "request:\n  method: GET\n  path: /api/v4/projects/alpha/issues\nidentity:\n  name: alice\n  traits:\n    allowed_projects: [alpha, beta]"
   },
   {
-    "name": "Glob in a non-final segment",
+    "name": "7. Glob in a non-final segment",
     "rule": "app_resources:\n  - paths: [\"/api/v4/projects/*/{project}/**\"]\n    methods: [GET]\n    where: contains(user.traits[\"allowed_projects\"], vars.project)",
     "input": "request:\n  method: GET\n  path: /api/v4/projects/anyteam/alpha/issues\nidentity:\n  name: alice\n  traits:\n    allowed_projects: [alpha]"
   },
   {
-    "name": "Capture equals identity",
-    "rule": "app_resources:\n  - pred: |\n      path.match(\n        literal(\"api\", literal(\"v4\", literal(\"user\",\n          capture(\"username\", greedy()))))) &&\n      user.name == vars.username",
+    "name": "8. Capture equals identity",
+    "rule": "app_resources:\n  - paths: [\"/api/v4/user/{username}\"]\n    where: user.name == vars.username",
     "input": "request:\n  method: GET\n  path: /api/v4/user/alice\nidentity:\n  name: alice"
   },
   {
-    "name": "Role required",
-    "rule": "app_resources:\n  - pred: path.match(literal(\"admin\", greedy())) && contains(user.roles, \"admin\")",
+    "name": "9. Role required",
+    "rule": "app_resources:\n  - paths: [\"/admin/**\"]\n    where: contains(user.roles, \"admin\")",
     "input": "request:\n  method: DELETE\n  path: /admin/settings\nidentity:\n  name: bob\n  roles: [admin]"
   },
   {
-    "name": "Additive list (two rules)",
+    "name": "10. Carve-out (negation)",
+    "rule": "app_resources:\n  - where: path.match(greedy()) && !path.match(literal(\"admin\", greedy()))",
+    "input": "request:\n  method: GET\n  path: /api/users\nidentity:\n  name: bob"
+  },
+  {
+    "name": "11. where holds the whole predicate",
+    "rule": "app_resources:\n  - where: path.match(literal(\"metrics\")) && request.method == \"GET\"",
+    "input": "request:\n  method: GET\n  path: /metrics\nidentity:\n  name: bob"
+  },
+  {
+    "name": "12. Additive list (two rules)",
     "rule": "app_resources:\n  - paths: [\"/public/**\"]\n  - paths: [\"/static/**\"]",
     "input": "request:\n  method: GET\n  path: /static/css/app.css\nidentity:\n  name: bob"
   },
   {
-    "name": "Method only (any path)",
-    "rule": "app_resources:\n  - methods: [POST, PUT]",
-    "input": "request:\n  method: POST\n  path: /anything\nidentity:\n  name: bob"
-  },
-  {
-    "name": "Bare predicate, request fields",
-    "rule": "app_resources:\n  - pred: request.method == \"GET\" && path.match(literal(\"metrics\"))",
-    "input": "request:\n  method: GET\n  path: /metrics\nidentity:\n  name: bob"
-  },
-  {
-    "name": "Denied: wrong method",
+    "name": "13. Denied: wrong method",
     "rule": "app_resources:\n  - paths: [\"/api/**\"]\n    methods: [GET]",
     "input": "request:\n  method: POST\n  path: /api/users\nidentity:\n  name: bob"
   }

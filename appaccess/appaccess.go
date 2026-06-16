@@ -9,6 +9,7 @@ package appaccess
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/gravitational/trace"
 	"gopkg.in/yaml.v3"
@@ -74,10 +75,11 @@ func Evaluate(resourcesYAML string, in Input) (Result, error) {
 	return Result{Allowed: decision.Allowed, Vars: decision.Vars}, nil
 }
 
-// Desugar lowers every rule in an app_resources list to its bare predicate
-// form and returns the resulting app_resources YAML. A rule already in the
-// predicate form is returned unchanged. It lets the web page show the
-// predicate a declarative rule compiles to.
+// Desugar lowers every rule in an app_resources list to a single where
+// predicate and returns the resulting app_resources YAML. The declarative
+// paths and methods collapse into the same where condition, so the desugared
+// rule reads as one predicate over the path, method, and identity. It lets the
+// web page show the predicate a declarative rule compiles to.
 func Desugar(resourcesYAML string) (string, error) {
 	var doc resourcesDoc
 	if err := yaml.Unmarshal([]byte(resourcesYAML), &doc); err != nil {
@@ -90,7 +92,7 @@ func Desugar(resourcesYAML string) (string, error) {
 		if err != nil {
 			return "", trace.Wrap(err, "desugaring rule %d", i)
 		}
-		out.AppResources = append(out.AppResources, rm.Rule{Pred: pred})
+		out.AppResources = append(out.AppResources, rm.Rule{Where: formatPredicate(pred)})
 	}
 
 	marshalled, err := yaml.Marshal(out)
@@ -98,4 +100,70 @@ func Desugar(resourcesYAML string) (string, error) {
 		return "", trace.Wrap(err, "encoding app_resources")
 	}
 	return string(marshalled), nil
+}
+
+// formatPredicate reformats a one-line predicate into an indented multi-line
+// form so the matcher tree's nesting is visible. It breaks after "(", ",", and
+// "&&". Closing parentheses stay on the line they close, so the result remains
+// parseable: the engine parses Go expression syntax, where a line may end in
+// "(", ",", or an operator, but a line ending in ")" inside an argument list
+// would have a semicolon inserted and fail to parse. An empty "()" is kept on
+// one line.
+func formatPredicate(s string) string {
+	var b strings.Builder
+	depth := 0
+	inString := false
+	newline := func(d int) {
+		b.WriteByte('\n')
+		b.WriteString(strings.Repeat("  ", d))
+	}
+	for i := 0; i < len(s); i++ {
+		c := s[i]
+		if inString {
+			b.WriteByte(c)
+			if c == '"' {
+				inString = false
+			}
+			continue
+		}
+		switch c {
+		case '"':
+			inString = true
+			b.WriteByte(c)
+		case '(':
+			if i+1 < len(s) && s[i+1] == ')' {
+				b.WriteString("()")
+				i++
+				continue
+			}
+			depth++
+			b.WriteByte('(')
+			newline(depth)
+		case ')':
+			if depth > 0 {
+				depth--
+			}
+			b.WriteByte(')')
+		case ',':
+			b.WriteByte(',')
+			if i+1 < len(s) && s[i+1] == ' ' {
+				i++
+			}
+			newline(depth)
+		case '&':
+			if i+1 < len(s) && s[i+1] == '&' {
+				b.WriteString("&&")
+				i++
+				if i+1 < len(s) && s[i+1] == ' ' {
+					i++
+				}
+				newline(depth)
+			} else {
+				b.WriteByte(c)
+			}
+		default:
+			b.WriteByte(c)
+		}
+	}
+	return b.String()
 }

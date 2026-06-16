@@ -47,23 +47,32 @@ textarea, input[type=text] {
   resize: vertical;
 }
 textarea:focus, input:focus { outline: none; border-color: var(--accent); }
-#expr, #rule { min-height: 6.5rem; }
-#input { min-height: 12rem; }
+#expr { min-height: 6rem; }
+#rule { min-height: 22rem; }
+#input { min-height: 8rem; }
 
 /* Syntax-highlight overlay: a transparent textarea layered over a <pre> that
-   mirrors its text with colored tokens. Both must share an identical box model
-   so characters line up exactly. */
-.editor { position: relative; }
+   mirrors its text with colored tokens. The single visible border lives on the
+   wrapper, and both children are borderless and transparent, so there is no
+   second, misaligned border and the characters line up exactly. */
+.editor {
+  position: relative;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--panel);
+}
+.editor:focus-within { border-color: var(--accent); }
 .editor > textarea,
 .editor > .editor-hl {
   margin: 0;
   width: 100%;
+  box-sizing: border-box;
   font-family: var(--mono);
   font-size: 0.9rem;
   line-height: 1.5;
   padding: 0.7rem 0.85rem;
-  border: 1px solid var(--border);
-  border-radius: 8px;
+  border: 0;
+  background: transparent;
   white-space: pre-wrap;
   overflow-wrap: break-word;
   word-break: normal;
@@ -72,9 +81,6 @@ textarea:focus, input:focus { outline: none; border-color: var(--accent); }
 .editor > .editor-hl {
   position: absolute;
   inset: 0;
-  margin: 0;
-  background: var(--panel);
-  border-color: transparent;
   color: var(--text);
   overflow: auto;
   pointer-events: none;
@@ -84,7 +90,7 @@ textarea:focus, input:focus { outline: none; border-color: var(--accent); }
 .editor > textarea {
   position: relative;
   z-index: 1;
-  background: transparent;
+  display: block;
   color: transparent;
   /* WebKit needs this explicitly, or the textarea's own text shows through on
      top of the colored layer and looks like a shadow. */
@@ -92,7 +98,6 @@ textarea:focus, input:focus { outline: none; border-color: var(--accent); }
   caret-color: var(--text);
   resize: vertical;
 }
-.editor > textarea:focus { border-color: var(--accent); }
 
 /* Token colors, tuned for the dark theme. */
 .t-str { color: #7ee787; }
