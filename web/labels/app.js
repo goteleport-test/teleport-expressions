@@ -31,9 +31,14 @@ const inputEl = document.getElementById("input");
 const resultEl = document.getElementById("result");
 const evaluateBtn = document.getElementById("evaluate");
 
+const exprEditor = CodeEditor.makeEditor(exprEl, "expr");
+const inputEditor = CodeEditor.makeEditor(inputEl, "yaml");
+
 function loadSample(name) {
   exprEl.value = SAMPLES[name].expr;
   inputEl.value = SAMPLES[name].input;
+  exprEditor.update();
+  inputEditor.update();
 }
 
 function render() {
