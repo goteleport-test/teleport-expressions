@@ -21,7 +21,8 @@ The index page at `/` links to both.
 - `appaccess/` - the app-access rule evaluator and its `Evaluate` function.
 - `internal/typical/` - Teleport's `typical` predicate library, copied verbatim.
 - `internal/set/` - Teleport's `set` package, copied verbatim.
-- `internal/resourcematcher/` - Teleport's app-access rule engine, copied verbatim.
+- `internal/resourcematcher/` - Teleport's app-access rule engine, copied from
+  upstream with small demo-only additions (see Attribution).
 - `cmd/eval/` - command-line label expression evaluator.
 - `cmd/labels-wasm/`, `cmd/appaccess-wasm/` - WebAssembly entry points.
 - `cmd/serve/` - tiny static file server for the web pages.
@@ -74,6 +75,15 @@ match. A `where` or `pred` condition reads the request (`request.method`,
 the captures a match bound (`vars.<name>`). The input is YAML holding a
 `request` (`method`, `path`) and an `identity` (`name`, `roles`, `traits`).
 
+A rule may also configure URL decoding and carry decision metadata.
+`url_decoding` decodes the request path a set number of passes
+(`decode_iterations`) before matching, then `allow_percent` decides whether a
+residual `%` is admitted. On an allow a rule can return an `allow_code` and
+`allow_reason`. On a deny each `deny_hint` entry (a `deny_code`, an optional
+`deny_reason`, and an optional `on` condition that defaults to the path and
+method clause) explains a near miss. The result panel shows the allow code and
+reason on an allow, and every deny hint that fired on a deny.
+
 The page's sugared checkbox toggles each example between its declarative form
 and the predicate it lowers to. The desugared form is computed live by the
 evaluator, so it always matches what the declarative form compiles to.
@@ -94,9 +104,12 @@ from [gravitational/teleport](https://github.com/gravitational/teleport) at tag
 `lib/utils/typical/`, `lib/utils/set/`, `lib/utils/replace.go`, and
 `lib/utils/parse/parse.go`.
 
-The contents of `internal/resourcematcher` are copied verbatim, with only the
-`typical` import path rewritten, from the Teleport branch
-`julia/app/policy-matcher-sketch` (`lib/srv/app/resourcematcher`).
+The contents of `internal/resourcematcher` are copied from the Teleport branch
+`julia/app/policy-matcher-sketch` (`lib/srv/app/resourcematcher`), with the
+`typical` import path rewritten and two demo-only changes. A `DesugaredRule`
+type lets the web front end render the lowered form of a rule, and the
+`desugar()` function wraps the `where` clause in parentheses only when it is
+combined with a path or method clause, rather than unconditionally.
 
 Because it incorporates Teleport source, this project is licensed under the GNU
 Affero General Public License v3.0. See [LICENSE](LICENSE).
