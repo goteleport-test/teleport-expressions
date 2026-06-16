@@ -231,12 +231,14 @@ function contentHash(name) {
 }
 
 // computeShareHash returns the hash for the current view. An unmodified example
-// keeps the short, readable #topic/#example form (the name is not carried);
-// anything modified, or an already-shared snippet, becomes a #content= link.
+// whose name is still the example's own keeps the short, readable
+// #topic/#example form. Editing the rule or input, giving the snippet a
+// different name, or sharing an already-shared snippet becomes a #content=
+// link, since the short form has nowhere to carry a custom name.
 function computeShareHash(name) {
   if (!sharedMode) {
     const ex = currentExamples()[sampleSelect.value];
-    if (ex && !isModified(ex)) {
+    if (ex && !isModified(ex) && name === ex.name) {
       const p = new URLSearchParams();
       p.set("topic", topicSelect.value);
       p.set("example", sampleSelect.value);
@@ -255,14 +257,15 @@ function updateShareUrl() {
 }
 
 // openShare fills and shows the share dialog. The name field is seeded with the
-// current example name, or the snippet name in shared mode, so a shared link
-// carries a meaningful label by default.
+// snippet name in shared mode, or the example name while the example is
+// unmodified. Once the example is edited the name no longer describes the
+// content, so leave the field empty and let the "untitled" placeholder show.
 function openShare() {
   if (sharedMode) {
     shareNameEl.value = sharedName;
   } else {
     const ex = currentExamples()[sampleSelect.value];
-    shareNameEl.value = ex ? ex.name : "";
+    shareNameEl.value = ex && !isModified(ex) ? ex.name : "";
   }
   updateShareUrl();
   shareDialog.showModal();
