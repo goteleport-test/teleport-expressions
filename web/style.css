@@ -115,9 +115,37 @@ textarea:focus, input:focus { outline: none; border-color: var(--accent); }
 /* Stack the two editors, side by side once the viewport is wide enough. */
 .fields { display: flex; flex-direction: column; gap: 1.25rem; }
 .fields > .field { margin-bottom: 0; }
-@media (min-width: 60rem) {
-  .fields { flex-direction: row; align-items: flex-start; }
-  .fields > .field { flex: 1; min-width: 0; }
+@media (min-width: 52rem) {
+  /* On wide screens fit everything in the viewport with no body scroll: make
+     main a full-height column and let the editors absorb the leftover space,
+     so the input always matches app_resources and the result stays in view. */
+  main {
+    max-width: 1080px;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+  .fields { flex-direction: row; flex: 1; min-height: 0; }
+  .fields > .field {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+  }
+  .fields > .field .editor { flex: 1; min-height: 0; }
+  .fields > .field .editor > textarea { height: 100%; min-height: 0; }
+}
+
+/* Mobile: reclaim vertical space and keep the heading on one line (tested at
+   the 375px iPhone SE width). */
+@media (max-width: 30rem) {
+  main { padding: 1.5rem 1rem 3rem; }
+  h1 { font-size: 1rem; }
+  p.lede { display: none; }
+  /* Give the sample picker the full row width so the select does not get
+     squashed between the prev and next buttons. */
+  .samples { flex: 1 1 100%; }
+  .samples select { flex: 1 1 auto; min-width: 0; }
 }
 button {
   border: 1px solid var(--border);
@@ -146,7 +174,12 @@ button:disabled { opacity: 0.5; cursor: default; }
   cursor: pointer;
 }
 .toggle input { cursor: pointer; accent-color: var(--accent); }
-.samples { display: flex; align-items: center; gap: 0.4rem; }
+.samples {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-width: 0;
+}
 .samples label { margin: 0; font-weight: 400; color: var(--muted); font-size: 0.85rem; }
 .samples button { padding: 0.5rem 0.7rem; }
 .samples select {
@@ -158,6 +191,8 @@ button:disabled { opacity: 0.5; cursor: default; }
   font-size: 0.9rem;
   cursor: pointer;
 }
+/* Keep Evaluate at the right edge of the controls row. */
+.controls #evaluate { margin-left: auto; }
 .samples select:focus { outline: none; border-color: var(--accent); }
 #result {
   margin-top: 1.5rem;
@@ -171,6 +206,7 @@ button:disabled { opacity: 0.5; cursor: default; }
   white-space: pre-wrap;
   word-break: break-word;
 }
+#result.idle { color: var(--muted); }
 #result.match { border-color: var(--ok); }
 #result.nomatch { border-color: var(--err); }
 #result.error { border-color: var(--err); }

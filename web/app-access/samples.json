@@ -6,7 +6,7 @@
   },
   {
     "name": "2. Multiple exact paths",
-    "rule": "app_resources:\n  - paths: [\"/api/v4/health\", \"/api/v4/status\"]",
+    "rule": "app_resources:\n  - paths:\n      - \"/api/v4/health\"\n      - \"/api/v4/status\"",
     "input": "request:\n  method: GET\n  path: /api/v4/status\nidentity:\n  name: bob"
   },
   {

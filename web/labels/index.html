@@ -23,6 +23,7 @@
       <select id="sample-select"></select>
       <button id="next" type="button" title="Next sample">&rarr;</button>
     </span>
+    <button id="evaluate" class="primary" title="Evaluate (⌘/Ctrl + Enter)" disabled>Evaluate</button>
   </div>
 
   <div class="fields">
@@ -39,11 +40,7 @@
     </div>
   </div>
 
-  <div class="row">
-    <button id="evaluate" class="primary" disabled>Evaluate</button>
-  </div>
-
-  <div id="result" aria-live="polite">Loading WebAssembly module&hellip;</div>
+  <div id="result" class="idle" aria-live="polite">Loading WebAssembly module&hellip;</div>
 
   <footer>
     Parser specification copied from Teleport

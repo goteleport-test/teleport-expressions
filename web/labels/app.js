@@ -60,6 +60,14 @@ document.getElementById("prev").addEventListener("click", () => step(-1));
 document.getElementById("next").addEventListener("click", () => step(1));
 evaluateBtn.addEventListener("click", render);
 
+// Cmd/Ctrl+Enter evaluates from anywhere, including while typing in a field.
+document.addEventListener("keydown", (e) => {
+  if ((e.metaKey || e.ctrlKey) && e.key === "Enter" && !evaluateBtn.disabled) {
+    e.preventDefault();
+    render();
+  }
+});
+
 // Load the samples, populate the dropdown, and show the first one.
 fetch("samples.json")
   .then((r) => r.json())
@@ -80,6 +88,7 @@ const go = new Go();
 WebAssembly.instantiateStreaming(fetch("eval.wasm"), go.importObject)
   .then((res) => {
     go.run(res.instance);
+    resultEl.className = "idle";
     resultEl.textContent = "Ready. Press Evaluate.";
     evaluateBtn.disabled = false;
   })
