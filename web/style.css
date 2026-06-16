@@ -136,11 +136,22 @@ textarea:focus, input:focus { outline: none; border-color: var(--accent); }
   .fields > .field .editor > textarea { height: 100%; min-height: 0; }
 }
 
+/* On very wide screens let the content keep growing, so long where clauses
+   have room and stop wrapping. */
+@media (min-width: 90rem) {
+  main { max-width: 1320px; }
+}
+@media (min-width: 130rem) {
+  main { max-width: 1760px; }
+}
+
 /* Mobile: reclaim vertical space and keep the heading on one line (tested at
    the 375px iPhone SE width). */
 @media (max-width: 30rem) {
   main { padding: 1.5rem 1rem 3rem; }
-  h1 { font-size: 1rem; }
+  /* With the lede hidden, give the heading its own breathing room above the
+     controls. */
+  h1 { font-size: 1.1rem; margin-bottom: 1.25rem; }
   p.lede { display: none; }
   /* Give the sample picker the full row width so the select does not get
      squashed between the prev and next buttons. */

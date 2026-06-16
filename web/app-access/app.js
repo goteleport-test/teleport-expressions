@@ -30,9 +30,42 @@ function loadCurrent() {
   inputEl.value = s.input;
   ruleEditor.update();
   inputEditor.update();
+  writeHash();
 }
 
+// writeHash records the selected sample and sugared state in the URL hash, so a
+// view can be linked or bookmarked. It uses replaceState, so stepping through
+// samples does not pile up browser history entries.
+function writeHash() {
+  const p = new URLSearchParams();
+  p.set("sample", sampleSelect.value);
+  p.set("sugared", sugaredCheck.checked ? "1" : "0");
+  history.replaceState(null, "", "#" + p.toString());
+}
+
+// applyHash restores the sample and sugared state from the URL hash when it is
+// present and valid. It runs on load and on hashchange.
+function applyHash() {
+  const p = new URLSearchParams(location.hash.slice(1));
+  const idx = parseInt(p.get("sample"), 10);
+  if (!Number.isNaN(idx) && idx >= 0 && idx < samples.length) {
+    sampleSelect.value = String(idx);
+  }
+  const sugared = p.get("sugared");
+  if (sugared === "0") sugaredCheck.checked = false;
+  else if (sugared === "1") sugaredCheck.checked = true;
+}
+
+// render shows a brief "Evaluating…" state, then runs the evaluation. The short
+// delay makes it visible that an evaluation happened, which matters most when it
+// is triggered by the keyboard rather than a button press.
 function render() {
+  resultEl.className = "idle";
+  resultEl.textContent = "Evaluating…";
+  setTimeout(renderNow, 250);
+}
+
+function renderNow() {
   // evaluateAppAccessRule is registered by the Go WebAssembly module.
   const out = evaluateAppAccessRule(ruleEl.value, inputEl.value);
   resultEl.className = "";
@@ -53,7 +86,7 @@ function render() {
   const vars = out.vars || {};
   const keys = Object.keys(vars);
   if (out.allowed && keys.length > 0) {
-    text += "\ncaptures:";
+    text += "\nvars:";
     for (const k of keys) {
       text += "\n  " + escapeHtml(k) + ": " + escapeHtml(vars[k]);
     }
@@ -83,11 +116,31 @@ document.getElementById("next").addEventListener("click", () => step(1));
 evaluateBtn.addEventListener("click", render);
 
 // Cmd/Ctrl+Enter evaluates from anywhere, including while typing in a field.
+// Left and right arrows step through the samples, but only when no field is
+// focused, so they do not fight cursor movement while editing.
 document.addEventListener("keydown", (e) => {
   if ((e.metaKey || e.ctrlKey) && e.key === "Enter" && !evaluateBtn.disabled) {
     e.preventDefault();
     render();
+    return;
   }
+  if (e.metaKey || e.ctrlKey || e.altKey) return;
+  const tag = e.target && e.target.tagName;
+  if (tag === "TEXTAREA" || tag === "INPUT" || tag === "SELECT") return;
+  if (e.key === "ArrowLeft") {
+    e.preventDefault();
+    step(-1);
+  } else if (e.key === "ArrowRight") {
+    e.preventDefault();
+    step(1);
+  }
+});
+
+// Restore and track sample state in the URL hash, including across back and
+// forward navigation.
+window.addEventListener("hashchange", () => {
+  applyHash();
+  loadCurrent();
 });
 
 // Load the samples, populate the dropdown, and show the first one.
@@ -102,6 +155,7 @@ fetch("samples.json")
       opt.textContent = s.name;
       sampleSelect.appendChild(opt);
     });
+    applyHash();
     loadCurrent();
   });
 
@@ -113,6 +167,9 @@ WebAssembly.instantiateStreaming(fetch("eval.wasm"), go.importObject)
     resultEl.className = "idle";
     resultEl.textContent = "Ready. Press Evaluate.";
     evaluateBtn.disabled = false;
+    // Re-render now that desugarAppResources is registered, so a desugared
+    // view requested before the module loaded is filled in.
+    loadCurrent();
   })
   .catch((err) => {
     resultEl.className = "error";

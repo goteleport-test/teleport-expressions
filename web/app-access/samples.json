@@ -55,18 +55,23 @@
     "input": "request:\n  method: GET\n  path: /metrics\nidentity:\n  name: bob"
   },
   {
-    "name": "12. Additive list (two rules)",
+    "name": "12. Literal chain, nested form",
+    "rule": "app_resources:\n  # literal() splits its text on \"/\", so this nested chain is the same\n  # matcher as the contracted literal(\"api/v4/buildinfo\").\n  - where: path.match(literal(\"api\", literal(\"v4\", literal(\"buildinfo\"))))",
+    "input": "request:\n  method: GET\n  path: /api/v4/buildinfo\nidentity:\n  name: bob"
+  },
+  {
+    "name": "13. Additive list (two rules)",
     "rule": "app_resources:\n  - paths: [\"/public/**\"]\n  - paths: [\"/static/**\"]",
     "input": "request:\n  method: GET\n  path: /static/css/app.css\nidentity:\n  name: bob"
   },
   {
-    "name": "13. Denied: wrong method",
+    "name": "14. Denied: wrong method",
     "rule": "app_resources:\n  - paths: [\"/api/**\"]\n    methods: [GET]",
     "input": "request:\n  method: POST\n  path: /api/users\nidentity:\n  name: bob"
   },
   {
-    "name": "14. Anti-pattern (commented out)",
-    "rule": "app_resources:\n  # When one rule lists several paths, bind the same captures in each.\n  # The second path below binds {team}, not {project}, so a request that\n  # matches it leaves vars.project unbound and the rule denies, fail-closed.\n  # Shown commented out so it does not run:\n  #\n  # - paths: [\"/api/v4/projects/{project}/**\", \"/api/v4/teams/{team}/**\"]\n  #   where: contains(user.traits[\"allowed_projects\"], vars.project)\n  - paths: [\"/api/v4/projects/{project}/**\"]\n    where: contains(user.traits[\"allowed_projects\"], vars.project)",
+    "name": "15. Anti-pattern (commented out)",
+    "rule": "app_resources:\n  - paths:\n      - \"/api/v4/projects/{project}/**\"\n      # - \"/api/status\"   # Invalid: {project} must be bound for every path\n    where: contains(user.traits[\"allowed_projects\"], vars.project)",
     "input": "request:\n  method: GET\n  path: /api/v4/projects/alpha/issues\nidentity:\n  name: alice\n  traits:\n    allowed_projects: [alpha, beta]"
   }
 ]

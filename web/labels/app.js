@@ -18,9 +18,36 @@ function loadSample(index) {
   inputEl.value = s.input;
   exprEditor.update();
   inputEditor.update();
+  writeHash();
 }
 
+// writeHash records the selected sample in the URL hash, so a view can be
+// linked or bookmarked. It uses replaceState, so stepping through samples does
+// not pile up browser history entries.
+function writeHash() {
+  history.replaceState(null, "", "#sample=" + sampleSelect.value);
+}
+
+// applyHash restores the selected sample from the URL hash when it is present
+// and valid. It runs on load and on hashchange.
+function applyHash() {
+  const p = new URLSearchParams(location.hash.slice(1));
+  const idx = parseInt(p.get("sample"), 10);
+  if (!Number.isNaN(idx) && idx >= 0 && idx < samples.length) {
+    sampleSelect.value = String(idx);
+  }
+}
+
+// render shows a brief "Evaluating…" state, then runs the evaluation. The short
+// delay makes it visible that an evaluation happened, which matters most when it
+// is triggered by the keyboard rather than a button press.
 function render() {
+  resultEl.className = "idle";
+  resultEl.textContent = "Evaluating…";
+  setTimeout(renderNow, 250);
+}
+
+function renderNow() {
   // evaluateLabelExpression is registered by the Go WebAssembly module.
   const out = evaluateLabelExpression(exprEl.value, inputEl.value);
   resultEl.className = "";
@@ -61,11 +88,31 @@ document.getElementById("next").addEventListener("click", () => step(1));
 evaluateBtn.addEventListener("click", render);
 
 // Cmd/Ctrl+Enter evaluates from anywhere, including while typing in a field.
+// Left and right arrows step through the samples, but only when no field is
+// focused, so they do not fight cursor movement while editing.
 document.addEventListener("keydown", (e) => {
   if ((e.metaKey || e.ctrlKey) && e.key === "Enter" && !evaluateBtn.disabled) {
     e.preventDefault();
     render();
+    return;
   }
+  if (e.metaKey || e.ctrlKey || e.altKey) return;
+  const tag = e.target && e.target.tagName;
+  if (tag === "TEXTAREA" || tag === "INPUT" || tag === "SELECT") return;
+  if (e.key === "ArrowLeft") {
+    e.preventDefault();
+    step(-1);
+  } else if (e.key === "ArrowRight") {
+    e.preventDefault();
+    step(1);
+  }
+});
+
+// Restore and track sample state in the URL hash, including across back and
+// forward navigation.
+window.addEventListener("hashchange", () => {
+  applyHash();
+  loadSample(sampleSelect.value);
 });
 
 // Load the samples, populate the dropdown, and show the first one.
@@ -80,7 +127,8 @@ fetch("samples.json")
       opt.textContent = s.name;
       sampleSelect.appendChild(opt);
     });
-    loadSample(0);
+    applyHash();
+    loadSample(sampleSelect.value);
   });
 
 // Load and start the WebAssembly module, then enable evaluation.
