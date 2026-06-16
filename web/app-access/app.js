@@ -68,8 +68,18 @@ function escapeHtml(s) {
     .replace(/>/g, "&gt;");
 }
 
+function step(delta) {
+  const n = samples.length;
+  if (!n) return;
+  const i = ((parseInt(sampleSelect.value, 10) || 0) + delta + n) % n;
+  sampleSelect.value = String(i);
+  loadCurrent();
+}
+
 sampleSelect.addEventListener("change", loadCurrent);
 sugaredCheck.addEventListener("change", loadCurrent);
+document.getElementById("prev").addEventListener("click", () => step(-1));
+document.getElementById("next").addEventListener("click", () => step(1));
 evaluateBtn.addEventListener("click", render);
 
 // Load the samples, populate the dropdown, and show the first one.
