@@ -155,9 +155,10 @@ textarea:focus, input:focus { outline: none; border-color: var(--accent); }
   /* The field-label format hints wrap onto several lines on a narrow screen,
      and the editor content already shows the YAML format, so hide them. */
   label .hint { display: none; }
-  /* Give the sample picker the full row width so the select does not get
-     squashed between the prev and next buttons. */
+  /* Stack the controls: each picker and the sugared toggle take a full row, so
+     the selects are not squashed. */
   .samples { flex: 1 1 100%; }
+  .toggle { flex: 1 1 100%; }
   /* Drop the fixed widths on mobile so each select fills its row. */
   #topic-select,
   #sample-select {
@@ -165,6 +166,11 @@ textarea:focus, input:focus { outline: none; border-color: var(--accent); }
     flex: 1 1 auto;
     min-width: 0;
   }
+  /* On the final row keep the stepper at the left and Evaluate at the right.
+     The compound .row.controls beats the wider-screen .controls .stepper rule
+     that appears later in the file, which would otherwise win on a tie. */
+  .row.controls .stepper { margin-left: 0; }
+  .controls #evaluate { margin-left: auto; }
 }
 button {
   border: 1px solid var(--border);
@@ -200,7 +206,8 @@ button:disabled { opacity: 0.5; cursor: default; }
   min-width: 0;
 }
 .samples label { margin: 0; font-weight: 400; color: var(--muted); font-size: 0.85rem; }
-.samples button { padding: 0.5rem 0.7rem; }
+.stepper { display: flex; gap: 0.4rem; }
+.stepper button { padding: 0.5rem 0.7rem; }
 .samples select {
   background: var(--panel);
   color: var(--text);
@@ -216,8 +223,9 @@ button:disabled { opacity: 0.5; cursor: default; }
 }
 #topic-select { width: 11rem; }
 #sample-select { width: 18rem; }
-/* Keep Evaluate at the right edge of the controls row. */
-.controls #evaluate { margin-left: auto; }
+/* Push the stepper and Evaluate together to the right edge of the row, so the
+   pickers sit on the left and the actions group on the right. */
+.controls .stepper { margin-left: auto; }
 .samples select:focus { outline: none; border-color: var(--accent); }
 #result {
   margin-top: 1.5rem;
