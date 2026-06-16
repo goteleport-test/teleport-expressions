@@ -1,38 +1,38 @@
 [
   {
-    "name": "1. Path prefix",
-    "rule": "app_resources:\n  - paths: [\"/api/**\"]",
-    "input": "request:\n  method: GET\n  path: /api/users\nidentity:\n  name: bob"
-  },
-  {
-    "name": "2. Path + method",
-    "rule": "app_resources:\n  - paths: [\"/api/**\"]\n    methods: [GET]",
-    "input": "request:\n  method: GET\n  path: /api/users\nidentity:\n  name: bob"
-  },
-  {
-    "name": "3. Exact path",
+    "name": "1. Exact path",
     "rule": "app_resources:\n  - paths: [\"/api/v4/health\"]",
     "input": "request:\n  method: GET\n  path: /api/v4/health\nidentity:\n  name: bob"
   },
   {
-    "name": "4. Capture a segment",
-    "rule": "app_resources:\n  - paths: [\"/api/v4/projects/{project}/**\"]",
-    "input": "request:\n  method: GET\n  path: /api/v4/projects/alpha/issues\nidentity:\n  name: bob"
+    "name": "2. Multiple exact paths",
+    "rule": "app_resources:\n  - paths: [\"/api/v4/health\", \"/api/v4/status\"]",
+    "input": "request:\n  method: GET\n  path: /api/v4/status\nidentity:\n  name: bob"
   },
   {
-    "name": "5. Capture + method",
-    "rule": "app_resources:\n  - paths: [\"/api/v4/projects/{project}/repository/**\"]\n    methods: [GET, HEAD]",
-    "input": "request:\n  method: GET\n  path: /api/v4/projects/myproj/repository/tree\nidentity:\n  name: alice"
+    "name": "3. Greedy glob",
+    "rule": "app_resources:\n  - paths: [\"/api/v4/**\"]",
+    "input": "request:\n  method: GET\n  path: /api/v4/users/123\nidentity:\n  name: bob"
   },
   {
-    "name": "6. Capture checked against trait",
+    "name": "4. Glob + capture + contains",
+    "rule": "app_resources:\n  - paths: [\"/data/*/{letter}/**\"]\n    where: contains(set(\"a\", \"b\", \"c\"), vars.letter)",
+    "input": "request:\n  method: GET\n  path: /data/x/b/info\nidentity:\n  name: bob"
+  },
+  {
+    "name": "5. Method",
+    "rule": "app_resources:\n  - paths: [\"/api/**\"]\n    methods: [GET]",
+    "input": "request:\n  method: GET\n  path: /api/users\nidentity:\n  name: bob"
+  },
+  {
+    "name": "6. Methods",
+    "rule": "app_resources:\n  - paths: [\"/api/**\"]\n    methods: [GET, HEAD]",
+    "input": "request:\n  method: HEAD\n  path: /api/users\nidentity:\n  name: bob"
+  },
+  {
+    "name": "7. Capture checked against trait",
     "rule": "app_resources:\n  - paths: [\"/api/v4/projects/{project}/**\"]\n    methods: [GET]\n    where: contains(user.traits[\"allowed_projects\"], vars.project)",
     "input": "request:\n  method: GET\n  path: /api/v4/projects/alpha/issues\nidentity:\n  name: alice\n  traits:\n    allowed_projects: [alpha, beta]"
-  },
-  {
-    "name": "7. Glob in a non-final segment",
-    "rule": "app_resources:\n  - paths: [\"/api/v4/projects/*/{project}/**\"]\n    methods: [GET]\n    where: contains(user.traits[\"allowed_projects\"], vars.project)",
-    "input": "request:\n  method: GET\n  path: /api/v4/projects/anyteam/alpha/issues\nidentity:\n  name: alice\n  traits:\n    allowed_projects: [alpha]"
   },
   {
     "name": "8. Capture equals identity",
@@ -63,5 +63,10 @@
     "name": "13. Denied: wrong method",
     "rule": "app_resources:\n  - paths: [\"/api/**\"]\n    methods: [GET]",
     "input": "request:\n  method: POST\n  path: /api/users\nidentity:\n  name: bob"
+  },
+  {
+    "name": "14. Anti-pattern (commented out)",
+    "rule": "app_resources:\n  # When one rule lists several paths, bind the same captures in each.\n  # The second path below binds {team}, not {project}, so a request that\n  # matches it leaves vars.project unbound and the rule denies, fail-closed.\n  # Shown commented out so it does not run:\n  #\n  # - paths: [\"/api/v4/projects/{project}/**\", \"/api/v4/teams/{team}/**\"]\n  #   where: contains(user.traits[\"allowed_projects\"], vars.project)\n  - paths: [\"/api/v4/projects/{project}/**\"]\n    where: contains(user.traits[\"allowed_projects\"], vars.project)",
+    "input": "request:\n  method: GET\n  path: /api/v4/projects/alpha/issues\nidentity:\n  name: alice\n  traits:\n    allowed_projects: [alpha, beta]"
   }
 ]
