@@ -172,11 +172,10 @@ textarea:focus, input:focus { outline: none; border-color: var(--accent); }
     flex: 1 1 auto;
     min-width: 0;
   }
-  /* On the final row keep the stepper at the left and Evaluate at the right.
-     The compound .row.controls beats the wider-screen .controls .stepper rule
-     that appears later in the file, which would otherwise win on a tie. */
-  .row.controls .stepper { margin-left: 0; }
-  .controls #evaluate { margin-left: auto; }
+  /* The actions group takes a full row of its own, with the stepper at the
+     left and the Share and Evaluate buttons pushed to the right. */
+  .controls .actions { flex: 1 1 100%; }
+  .controls .actions #share { margin-left: auto; }
 }
 button {
   border: 1px solid var(--border);
@@ -194,6 +193,25 @@ button.primary {
   font-weight: 600;
 }
 button:disabled { opacity: 0.5; cursor: default; }
+/* Buttons that carry an inline SVG icon line the icon up with the label. */
+#evaluate, #share, #share-copy {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+.btn-icon { width: 1em; height: 1em; flex: none; }
+/* The copy button swaps its icon and label to a checkmark once copied, and
+   sheds its button chrome so the confirmation reads as a plain green label
+   rather than something still clickable. */
+#share-copy .check-icon { display: none; }
+#share-copy.copied .copy-icon { display: none; }
+#share-copy.copied .check-icon { display: inline-flex; }
+#share-copy.copied {
+  background: transparent;
+  border-color: transparent;
+  color: var(--ok);
+  cursor: default;
+}
 .toggle {
   margin: 0;
   font-weight: 400;
@@ -214,6 +232,9 @@ button:disabled { opacity: 0.5; cursor: default; }
 .samples label { margin: 0; font-weight: 400; color: var(--muted); font-size: 0.85rem; }
 .stepper { display: flex; gap: 0.4rem; }
 .stepper button { padding: 0.5rem 0.7rem; }
+/* The stepper, Share, and Evaluate group together as one unit so they stay on
+   one line and wrap together rather than splitting Evaluate onto its own row. */
+.actions { display: flex; align-items: center; gap: 0.6rem; }
 .samples select {
   background: var(--panel);
   color: var(--text);
@@ -229,9 +250,9 @@ button:disabled { opacity: 0.5; cursor: default; }
 }
 #topic-select { width: 11rem; }
 #sample-select { width: 18rem; }
-/* Push the stepper and Evaluate together to the right edge of the row, so the
-   pickers sit on the left and the actions group on the right. */
-.controls .stepper { margin-left: auto; }
+/* Push the actions group to the right edge of the row, so the pickers sit on
+   the left and the stepper, Share, and Evaluate group on the right. */
+.controls .actions { margin-left: auto; }
 .samples select:focus { outline: none; border-color: var(--accent); }
 #result {
   margin-top: 1.5rem;
@@ -266,3 +287,34 @@ footer { color: var(--muted); font-size: 0.8rem; margin-top: 2.5rem; }
 }
 .toc a { font-size: 1.05rem; font-weight: 600; }
 .toc p { margin: 0.3rem 0 0; color: var(--muted); font-size: 0.9rem; }
+
+/* Share dialog: a native <dialog> styled to match the dark panels. */
+dialog.share-dialog {
+  position: relative;
+  background: var(--panel);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 1.4rem 1.5rem;
+  width: min(34rem, calc(100vw - 2rem));
+}
+dialog.share-dialog::backdrop { background: rgba(0, 0, 0, 0.55); }
+dialog.share-dialog h2 { font-size: 1.15rem; margin: 0 1.5rem 1.1rem 0; }
+.share-field { margin-bottom: 1rem; }
+.share-field:last-child { margin-bottom: 0; }
+.share-url-row { display: flex; gap: 0.5rem; align-items: center; }
+.share-url-row input { flex: 1; min-width: 0; }
+.share-url-row button { flex: none; }
+/* The corner close button: a borderless "×" that brightens on hover. */
+.dialog-close {
+  position: absolute;
+  top: 0.6rem;
+  right: 0.7rem;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font-size: 1.5rem;
+  line-height: 1;
+  padding: 0.1rem 0.35rem;
+}
+.dialog-close:hover { color: var(--text); border-color: transparent; }

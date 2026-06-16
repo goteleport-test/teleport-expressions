@@ -6,10 +6,70 @@ const resultEl = document.getElementById("result");
 const evaluateBtn = document.getElementById("evaluate");
 const sampleSelect = document.getElementById("sample-select");
 
+const shareBtn = document.getElementById("share");
+const shareDialog = document.getElementById("share-dialog");
+const shareUrlEl = document.getElementById("share-url");
+const shareNameEl = document.getElementById("share-name");
+const shareCopyEl = document.getElementById("share-copy");
+
 const exprEditor = CodeEditor.makeEditor(exprEl, "expr");
 const inputEditor = CodeEditor.makeEditor(inputEl, "yaml");
 
 let samples = [];
+
+// sharedMode is true while a #content= link is open. The sample picker then
+// shows a synthetic entry with the snippet's name; picking a real sample or
+// stepping leaves shared mode. sharedName defaults to "untitled".
+let sharedMode = false;
+let sharedName = "";
+
+// b64urlEncode serializes an object to JSON and encodes it as base64url (the
+// "-_" alphabet, no padding) over its UTF-8 bytes. Plain btoa is wrong here: it
+// fails on non-ASCII text, and "+/=" are not URL-safe.
+function b64urlEncode(obj) {
+  const bytes = new TextEncoder().encode(JSON.stringify(obj));
+  let bin = "";
+  for (const b of bytes) bin += String.fromCharCode(b);
+  return btoa(bin).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+
+// b64urlDecode reverses b64urlEncode, returning the parsed object, or null when
+// the string is not a valid encoded snippet.
+function b64urlDecode(s) {
+  try {
+    const b64 = s.replace(/-/g, "+").replace(/_/g, "/");
+    const bin = atob(b64);
+    const bytes = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    return JSON.parse(new TextDecoder().decode(bytes));
+  } catch (e) {
+    return null;
+  }
+}
+
+// buildSampleOptions fills the sample dropdown with the real samples. It is
+// also used to rebuild the dropdown after leaving shared mode.
+function buildSampleOptions() {
+  sampleSelect.innerHTML = "";
+  samples.forEach((s, i) => {
+    const opt = document.createElement("option");
+    opt.value = String(i);
+    opt.textContent = s.name;
+    sampleSelect.appendChild(opt);
+  });
+}
+
+// removeSharedOption drops the synthetic "shared" entry, leaving the user's
+// freshly chosen real sample selected.
+function removeSharedOption() {
+  const opt = sampleSelect.querySelector('option[value="shared"]');
+  if (opt) opt.remove();
+}
+
+// isModified reports whether the editors differ from the given sample.
+function isModified(s) {
+  return exprEl.value !== s.expr || inputEl.value !== s.input;
+}
 
 function loadSample(index) {
   const s = samples[index];
@@ -38,14 +98,91 @@ function writeHash() {
   history.replaceState(null, "", "#sample=" + sampleSelect.value);
 }
 
-// applyHash restores the selected sample from the URL hash when it is present
-// and valid. It runs on load and on hashchange.
-function applyHash() {
+// applyHashAndLoad restores the view from the URL hash and loads it. A
+// #content= snippet wins over #sample and opens in shared mode; otherwise the
+// selected sample is restored and loaded. It runs on load and on hashchange.
+function applyHashAndLoad() {
   const p = new URLSearchParams(location.hash.slice(1));
+  const content = p.get("content");
+  if (content) {
+    const snip = b64urlDecode(content);
+    if (snip) {
+      enterSharedMode(snip);
+      return;
+    }
+  }
+  sharedMode = false;
+  buildSampleOptions();
   const idx = parseInt(p.get("sample"), 10);
   if (!Number.isNaN(idx) && idx >= 0 && idx < samples.length) {
     sampleSelect.value = String(idx);
   }
+  loadSample(sampleSelect.value);
+}
+
+// enterSharedMode opens a shared snippet: it prepends a synthetic entry showing
+// the snippet name and fills the editors from the snippet. The picker stays a
+// real dropdown, so picking a real sample exits.
+function enterSharedMode(snip) {
+  sharedMode = true;
+  sharedName = snip.name ? snip.name : "untitled";
+  buildSampleOptions();
+  const opt = document.createElement("option");
+  opt.value = "shared";
+  opt.textContent = sharedName;
+  sampleSelect.insertBefore(opt, sampleSelect.firstChild);
+  sampleSelect.value = "shared";
+  exprEl.value = snip.expr || "";
+  inputEl.value = snip.input || "";
+  exprEditor.update();
+  inputEditor.update();
+  resetResult();
+}
+
+// contentHash encodes the current editor state as a #content= snippet.
+function contentHash(name) {
+  return (
+    "#content=" +
+    b64urlEncode({
+      name: name || "",
+      expr: exprEl.value,
+      input: inputEl.value,
+    })
+  );
+}
+
+// computeShareHash returns the hash for the current view. An unmodified sample
+// keeps the short #sample form (the name is not carried); anything modified, or
+// an already-shared snippet, becomes a #content= link.
+function computeShareHash(name) {
+  if (!sharedMode) {
+    const s = samples[sampleSelect.value];
+    if (s && !isModified(s)) {
+      return "#sample=" + sampleSelect.value;
+    }
+  }
+  return contentHash(name);
+}
+
+// updateShareUrl recomputes the link shown in the dialog from the current
+// editors and the name field, so the URL reflects the name as it is typed.
+function updateShareUrl() {
+  const hash = computeShareHash(shareNameEl.value.trim());
+  shareUrlEl.value = location.origin + location.pathname + hash;
+}
+
+// openShare fills and shows the share dialog. The name field is seeded with the
+// current sample name, or the snippet name in shared mode, so a shared link
+// carries a meaningful label by default.
+function openShare() {
+  if (sharedMode) {
+    shareNameEl.value = sharedName;
+  } else {
+    const s = samples[sampleSelect.value];
+    shareNameEl.value = s ? s.name : "";
+  }
+  updateShareUrl();
+  shareDialog.showModal();
 }
 
 // render shows a brief "Evaluating…" state, then runs the evaluation. The short
@@ -87,15 +224,54 @@ function escapeHtml(s) {
 function step(delta) {
   const n = samples.length;
   if (!n) return;
+  if (sharedMode) {
+    // Stepping leaves shared mode and lands on the first or last sample,
+    // from where further steps wrap as usual.
+    sharedMode = false;
+    removeSharedOption();
+    const i = delta > 0 ? 0 : n - 1;
+    sampleSelect.value = String(i);
+    loadSample(i);
+    return;
+  }
   const i = ((parseInt(sampleSelect.value, 10) || 0) + delta + n) % n;
   sampleSelect.value = String(i);
   loadSample(i);
 }
 
-sampleSelect.addEventListener("change", () => loadSample(sampleSelect.value));
+sampleSelect.addEventListener("change", () => {
+  if (sharedMode && sampleSelect.value !== "shared") {
+    // Picking a real sample leaves shared mode; the chosen option stays
+    // selected and only the synthetic entry is removed.
+    sharedMode = false;
+    removeSharedOption();
+  }
+  loadSample(sampleSelect.value);
+});
 document.getElementById("prev").addEventListener("click", () => step(-1));
 document.getElementById("next").addEventListener("click", () => step(1));
 evaluateBtn.addEventListener("click", render);
+
+shareBtn.addEventListener("click", openShare);
+shareNameEl.addEventListener("input", updateShareUrl);
+shareDialog.addEventListener("click", (e) => {
+  // Close when the backdrop (the dialog element itself) is clicked.
+  if (e.target === shareDialog) shareDialog.close();
+});
+const copyLabel = shareCopyEl.querySelector(".copy-label");
+shareCopyEl.addEventListener("click", () => {
+  navigator.clipboard.writeText(shareUrlEl.value).then(() => {
+    // Confirm with a checkmark and "Copied", then close the dialog. Reset the
+    // button so the next open shows "Copy" again.
+    shareCopyEl.classList.add("copied");
+    copyLabel.textContent = "Copied";
+    setTimeout(() => {
+      shareDialog.close();
+      shareCopyEl.classList.remove("copied");
+      copyLabel.textContent = "Copy";
+    }, 1000);
+  });
+});
 
 // Cmd/Ctrl+Enter evaluates from anywhere, including while typing in a field.
 // Left and right arrows step through the samples, but only when no field is
@@ -120,25 +296,15 @@ document.addEventListener("keydown", (e) => {
 
 // Restore and track sample state in the URL hash, including across back and
 // forward navigation.
-window.addEventListener("hashchange", () => {
-  applyHash();
-  loadSample(sampleSelect.value);
-});
+window.addEventListener("hashchange", applyHashAndLoad);
 
 // Load the samples, populate the dropdown, and show the first one.
 fetch("samples.json")
   .then((r) => r.json())
   .then((data) => {
     samples = data;
-    sampleSelect.innerHTML = "";
-    samples.forEach((s, i) => {
-      const opt = document.createElement("option");
-      opt.value = String(i);
-      opt.textContent = s.name;
-      sampleSelect.appendChild(opt);
-    });
-    applyHash();
-    loadSample(sampleSelect.value);
+    buildSampleOptions();
+    applyHashAndLoad();
   });
 
 // Load and start the WebAssembly module, then enable evaluation.

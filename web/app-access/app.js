@@ -11,12 +11,49 @@ const sugaredCheck = document.getElementById("sugared");
 const ruleEditor = CodeEditor.makeEditor(ruleEl, "yaml");
 const inputEditor = CodeEditor.makeEditor(inputEl, "yaml");
 
+const shareBtn = document.getElementById("share");
+const shareDialog = document.getElementById("share-dialog");
+const shareUrlEl = document.getElementById("share-url");
+const shareNameEl = document.getElementById("share-name");
+const shareCopyEl = document.getElementById("share-copy");
+
 // topics is a two-level tree: each topic groups a list of examples, and the two
 // dropdowns select a topic and then an example within it.
 let topics = [];
 
+// sharedMode is true while a #content= link is open. The pickers then show a
+// synthetic "shared" topic and the snippet's name, and editing is free-form;
+// picking a real topic or example, or stepping, leaves shared mode. sharedName
+// is the snippet's name, defaulting to "untitled".
+let sharedMode = false;
+let sharedName = "";
+
 function topicIndex() {
   return parseInt(topicSelect.value, 10) || 0;
+}
+
+// b64urlEncode serializes an object to JSON and encodes it as base64url (the
+// "-_" alphabet, no padding) over its UTF-8 bytes. Plain btoa is wrong here: it
+// fails on non-ASCII text, and "+/=" are not URL-safe.
+function b64urlEncode(obj) {
+  const bytes = new TextEncoder().encode(JSON.stringify(obj));
+  let bin = "";
+  for (const b of bytes) bin += String.fromCharCode(b);
+  return btoa(bin).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+
+// b64urlDecode reverses b64urlEncode, returning the parsed object, or null when
+// the string is not a valid encoded snippet.
+function b64urlDecode(s) {
+  try {
+    const b64 = s.replace(/-/g, "+").replace(/_/g, "/");
+    const bin = atob(b64);
+    const bytes = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    return JSON.parse(new TextDecoder().decode(bytes));
+  } catch (e) {
+    return null;
+  }
 }
 
 function currentExamples() {
@@ -35,6 +72,54 @@ function populateExamples(t) {
     opt.textContent = ex.name;
     sampleSelect.appendChild(opt);
   });
+}
+
+// buildTopicOptions fills the topic dropdown with the real topics, one option
+// per topic. It is also used to rebuild the dropdown after leaving shared mode.
+function buildTopicOptions() {
+  topicSelect.innerHTML = "";
+  topics.forEach((t, i) => {
+    const opt = document.createElement("option");
+    opt.value = String(i);
+    opt.textContent = t.topic;
+    topicSelect.appendChild(opt);
+  });
+}
+
+// prependOption inserts a synthetic option at the top of a select.
+function prependOption(select, value, text) {
+  const opt = document.createElement("option");
+  opt.value = value;
+  opt.textContent = text;
+  select.insertBefore(opt, select.firstChild);
+}
+
+// removeSharedOptions drops the synthetic "shared" entries from both pickers.
+// It leaves the user's freshly chosen real option selected.
+function removeSharedOptions() {
+  for (const sel of [topicSelect, sampleSelect]) {
+    const opt = sel.querySelector('option[value="shared"]');
+    if (opt) opt.remove();
+  }
+}
+
+// canonicalRuleFor returns the rule text the given example renders to under the
+// current sugared state, mirroring loadCurrent so the modified check compares
+// against exactly what was loaded.
+function canonicalRuleFor(ex) {
+  if (sugaredCheck.checked) return ex.rule;
+  if (typeof desugarAppResources === "function") {
+    const out = desugarAppResources(ex.rule);
+    if (out && !out.error) return out.yaml;
+  }
+  return ex.rule;
+}
+
+// isModified reports whether the editors differ from what the given example
+// plus the current sugared state renders. Toggling sugared alone is not a
+// modification, since canonicalRuleFor tracks the sugared state.
+function isModified(ex) {
+  return ruleEl.value !== canonicalRuleFor(ex) || inputEl.value !== ex.input;
 }
 
 // loadCurrent loads the selected example into the fields, honoring the sugared
@@ -79,10 +164,22 @@ function writeHash() {
   history.replaceState(null, "", "#" + p.toString());
 }
 
-// applyHash restores the topic, example, and sugared state from the URL hash
-// when it is present and valid. It runs on load and on hashchange.
-function applyHash() {
+// applyHashAndLoad restores the view from the URL hash and loads it. A
+// #content= snippet wins over #topic/#example and opens in shared mode;
+// otherwise the topic, example, and sugared state are restored and the canned
+// example is loaded. It runs on load and on hashchange.
+function applyHashAndLoad() {
   const p = new URLSearchParams(location.hash.slice(1));
+  const content = p.get("content");
+  if (content) {
+    const snip = b64urlDecode(content);
+    if (snip) {
+      enterSharedMode(snip);
+      return;
+    }
+  }
+  sharedMode = false;
+  buildTopicOptions();
   const t = parseInt(p.get("topic"), 10);
   if (!Number.isNaN(t) && t >= 0 && t < topics.length) {
     topicSelect.value = String(t);
@@ -95,6 +192,80 @@ function applyHash() {
   const sugared = p.get("sugared");
   if (sugared === "0") sugaredCheck.checked = false;
   else if (sugared === "1") sugaredCheck.checked = true;
+  loadCurrent();
+}
+
+// enterSharedMode opens a shared snippet: it prepends a synthetic "shared"
+// topic and a name entry, fills the editors from the snippet, and leaves the
+// pickers as real dropdowns so picking a real topic or example exits. The
+// example slot lists topic 0's examples beneath the name, so a real example is
+// always pickable.
+function enterSharedMode(snip) {
+  sharedMode = true;
+  sharedName = snip.name ? snip.name : "untitled";
+  buildTopicOptions();
+  prependOption(topicSelect, "shared", "shared");
+  topicSelect.value = "shared";
+  populateExamples(0);
+  prependOption(sampleSelect, "shared", sharedName);
+  sampleSelect.value = "shared";
+  ruleEl.value = snip.rule || "";
+  inputEl.value = snip.input || "";
+  sugaredCheck.checked = !!snip.sugared;
+  ruleEditor.update();
+  inputEditor.update();
+  resetResult();
+}
+
+// contentHash encodes the current editor state as a #content= snippet.
+function contentHash(name) {
+  return (
+    "#content=" +
+    b64urlEncode({
+      name: name || "",
+      rule: ruleEl.value,
+      input: inputEl.value,
+      sugared: sugaredCheck.checked,
+    })
+  );
+}
+
+// computeShareHash returns the hash for the current view. An unmodified example
+// keeps the short, readable #topic/#example form (the name is not carried);
+// anything modified, or an already-shared snippet, becomes a #content= link.
+function computeShareHash(name) {
+  if (!sharedMode) {
+    const ex = currentExamples()[sampleSelect.value];
+    if (ex && !isModified(ex)) {
+      const p = new URLSearchParams();
+      p.set("topic", topicSelect.value);
+      p.set("example", sampleSelect.value);
+      p.set("sugared", sugaredCheck.checked ? "1" : "0");
+      return "#" + p.toString();
+    }
+  }
+  return contentHash(name);
+}
+
+// updateShareUrl recomputes the link shown in the dialog from the current
+// editors and the name field, so the URL reflects the name as it is typed.
+function updateShareUrl() {
+  const hash = computeShareHash(shareNameEl.value.trim());
+  shareUrlEl.value = location.origin + location.pathname + hash;
+}
+
+// openShare fills and shows the share dialog. The name field is seeded with the
+// current example name, or the snippet name in shared mode, so a shared link
+// carries a meaningful label by default.
+function openShare() {
+  if (sharedMode) {
+    shareNameEl.value = sharedName;
+  } else {
+    const ex = currentExamples()[sampleSelect.value];
+    shareNameEl.value = ex ? ex.name : "";
+  }
+  updateShareUrl();
+  shareDialog.showModal();
 }
 
 // render shows a brief "Evaluating…" state, then runs the evaluation. The short
@@ -163,6 +334,17 @@ function escapeHtml(s) {
 // last example of the previous topic, so prev/next walk the whole tree.
 function step(delta) {
   if (topics.length === 0) return;
+  if (sharedMode) {
+    // Stepping leaves shared mode and lands on the first canned example, from
+    // where further steps walk the tree as usual.
+    sharedMode = false;
+    removeSharedOptions();
+    topicSelect.value = "0";
+    populateExamples(0);
+    sampleSelect.value = "0";
+    loadCurrent();
+    return;
+  }
   let t = topicIndex();
   let e = (parseInt(sampleSelect.value, 10) || 0) + delta;
   if (e >= topics[t].examples.length) {
@@ -179,15 +361,49 @@ function step(delta) {
 }
 
 topicSelect.addEventListener("change", () => {
+  // Picking a real topic leaves shared mode. removeSharedOptions drops the
+  // synthetic topic entry; populateExamples then rebuilds the example list.
+  sharedMode = false;
+  removeSharedOptions();
   populateExamples(topicIndex());
   sampleSelect.value = "0";
   loadCurrent();
 });
-sampleSelect.addEventListener("change", loadCurrent);
+sampleSelect.addEventListener("change", () => {
+  if (sharedMode) {
+    // Picking one of topic 0's real examples leaves shared mode. The chosen
+    // option stays selected; only the synthetic entries are removed.
+    sharedMode = false;
+    removeSharedOptions();
+    topicSelect.value = "0";
+  }
+  loadCurrent();
+});
 sugaredCheck.addEventListener("change", loadCurrent);
 document.getElementById("prev").addEventListener("click", () => step(-1));
 document.getElementById("next").addEventListener("click", () => step(1));
 evaluateBtn.addEventListener("click", render);
+
+shareBtn.addEventListener("click", openShare);
+shareNameEl.addEventListener("input", updateShareUrl);
+shareDialog.addEventListener("click", (e) => {
+  // Close when the backdrop (the dialog element itself) is clicked.
+  if (e.target === shareDialog) shareDialog.close();
+});
+const copyLabel = shareCopyEl.querySelector(".copy-label");
+shareCopyEl.addEventListener("click", () => {
+  navigator.clipboard.writeText(shareUrlEl.value).then(() => {
+    // Confirm with a checkmark and "Copied", then close the dialog. Reset the
+    // button so the next open shows "Copy" again.
+    shareCopyEl.classList.add("copied");
+    copyLabel.textContent = "Copied";
+    setTimeout(() => {
+      shareDialog.close();
+      shareCopyEl.classList.remove("copied");
+      copyLabel.textContent = "Copy";
+    }, 1000);
+  });
+});
 
 // Cmd/Ctrl+Enter evaluates from anywhere, including while typing in a field.
 // Left and right arrows step through the examples, but only when no field is
@@ -212,25 +428,15 @@ document.addEventListener("keydown", (e) => {
 
 // Restore and track state in the URL hash, including across back and forward
 // navigation.
-window.addEventListener("hashchange", () => {
-  applyHash();
-  loadCurrent();
-});
+window.addEventListener("hashchange", applyHashAndLoad);
 
 // Load the topics, populate the dropdowns, and show the first example.
 fetch("samples.json")
   .then((r) => r.json())
   .then((data) => {
     topics = data;
-    topicSelect.innerHTML = "";
-    topics.forEach((t, i) => {
-      const opt = document.createElement("option");
-      opt.value = String(i);
-      opt.textContent = t.topic;
-      topicSelect.appendChild(opt);
-    });
-    applyHash();
-    loadCurrent();
+    buildTopicOptions();
+    applyHashAndLoad();
   });
 
 // Load and start the WebAssembly module, then enable evaluation.
