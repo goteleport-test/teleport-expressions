@@ -163,5 +163,15 @@
         "input": "request:\n  method: GET\n  path: /api/v4/projects/gamma/issues\nidentity:\n  name: bob\n  roles: [developer]\n  traits:\n    allowed_projects: [alpha]"
       }
     ]
+  },
+  {
+    "topic": "roles",
+    "examples": [
+      {
+        "name": "no matching role",
+        "rule": "role_name: developer\n# The user must hold this role for\n# its app_resources to apply.\napp_resources:\n  - paths: [\"/api/v4/health\"]",
+        "input": "request:\n  method: GET\n  path: /api/v4/health\nidentity:\n  name: bob\n  roles: [auditor]"
+      }
+    ]
   }
 ]
