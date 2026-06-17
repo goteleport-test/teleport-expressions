@@ -9,6 +9,7 @@ package appaccess
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/gravitational/trace"
@@ -88,10 +89,16 @@ func Evaluate(resourcesYAML string, in Input) (Result, error) {
 		return Result{}, trace.BadParameter("identity.roles is required: list the roles the user holds")
 	}
 
-	// The demo models a single role: role_name names it and app_resources are
-	// its rules. CompileRoles builds the union and remembers the role name, so
-	// the decision reports it as an evaluated role without a separate list.
-	set, err := rm.CompileRoles([]rm.Role{{Name: doc.RoleName, Rules: doc.AppResources}})
+	// Gather app_resources only from the roles the user actually holds, the way
+	// a real cluster collects rules from a user's roles. role_name names the one
+	// role the demo defines; its rules apply only when the user holds it.
+	// Otherwise no held role carries app_resources, so the set is empty and the
+	// request is a default deny.
+	var roles []rm.Role
+	if slices.Contains(in.Identity.Roles, doc.RoleName) {
+		roles = []rm.Role{{Name: doc.RoleName, Rules: doc.AppResources}}
+	}
+	set, err := rm.CompileRoles(roles)
 	if err != nil {
 		return Result{}, trace.Wrap(err, "compiling app_resources")
 	}

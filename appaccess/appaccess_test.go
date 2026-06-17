@@ -129,6 +129,21 @@ app_resources:
 			want: false,
 		},
 		{
+			name: "user lacks the role denies",
+			rule: captureRule,
+			in: mustInput(t, `
+request:
+  method: GET
+  path: /api/v4/projects/alpha/issues
+identity:
+  name: alice
+  roles: [other]
+  traits:
+    allowed_projects: [alpha, beta]
+`),
+			want: false,
+		},
+		{
 			name:    "missing role_name errors",
 			rule:    "app_resources:\n  - paths: [\"/api/**\"]",
 			in:      allowedInput,
