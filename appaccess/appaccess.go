@@ -33,7 +33,11 @@ type Input struct {
 
 // resourcesDoc mirrors the relevant slice of a role spec: app_resources is a
 // list of rules, the same field a role would carry alongside app_labels.
+// role_name names the role those rules came from. A real cluster gathers the
+// rules from every role a user holds; this single field stands in for that one
+// role, so a deny can report which role was evaluated.
 type resourcesDoc struct {
+	RoleName     string    `yaml:"role_name,omitempty"`
 	AppResources []rm.Rule `yaml:"app_resources"`
 }
 
@@ -49,6 +53,10 @@ type Result struct {
 	AllowReason string
 	DenyKind    string
 	DenyHints   []DeniedHint
+	// EvaluatedRoles names the roles whose app_resources were evaluated. An
+	// empty list marks a misconfigured default-deny, where no role carried any
+	// app_resources.
+	EvaluatedRoles []string
 }
 
 // DeniedHint is one near-miss explanation that fired on a deny.
@@ -69,14 +77,14 @@ func Evaluate(resourcesYAML string, in Input) (Result, error) {
 		return Result{}, fmt.Errorf("parsing app_resources YAML: %w", err)
 	}
 
-	set, err := rm.CompileRules(doc.AppResources)
+	// The demo models a single role: role_name names it and app_resources are
+	// its rules. CompileRoles builds the union and remembers the role name, so
+	// the decision reports it as an evaluated role without a separate list.
+	set, err := rm.CompileRoles([]rm.Role{{Name: doc.RoleName, Rules: doc.AppResources}})
 	if err != nil {
 		return Result{}, trace.Wrap(err, "compiling app_resources")
 	}
 
-	// The demo supplies app_resources directly rather than gathering it from
-	// roles, so the identity's roles stand in for the roles that carried the
-	// rules. EvaluatedRoles rides the decision for audit, and is not surfaced.
 	decision, err := set.Evaluate(
 		rm.Request{Method: in.Request.Method, Path: in.Request.Path},
 		rm.Identity{
@@ -84,12 +92,11 @@ func Evaluate(resourcesYAML string, in Input) (Result, error) {
 			Roles:  in.Identity.Roles,
 			Traits: in.Identity.Traits,
 		},
-		in.Identity.Roles,
 	)
 	if err != nil {
 		return Result{}, trace.Wrap(err, "evaluating app_resources")
 	}
-	res := Result{Allowed: decision.Allowed}
+	res := Result{Allowed: decision.Allowed, EvaluatedRoles: decision.EvaluatedRoles}
 	if decision.Allow != nil {
 		res.Vars = decision.Allow.Vars
 		res.AllowCode = decision.Allow.Code
@@ -117,7 +124,7 @@ func Desugar(resourcesYAML string) (string, error) {
 		return "", fmt.Errorf("parsing app_resources YAML: %w", err)
 	}
 
-	out := resourcesDoc{AppResources: make([]rm.Rule, 0, len(doc.AppResources))}
+	out := resourcesDoc{RoleName: doc.RoleName, AppResources: make([]rm.Rule, 0, len(doc.AppResources))}
 	for i, r := range doc.AppResources {
 		// DesugaredRule lowers to the bare predicate form and carries the audit
 		// metadata and decode config, so the two surfaces stay equivalent. A

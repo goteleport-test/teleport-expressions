@@ -336,6 +336,10 @@ function renderNow() {
     '">' +
     (out.allowed ? "allowed: true" : "allowed: false") +
     "</span>";
+  const roles = (out.evaluatedRoles || []).filter((r) => r);
+  if (roles.length > 0) {
+    text += "\nevaluated_roles: [" + roles.map(escapeHtml).join(", ") + "]";
+  }
   const vars = out.vars || {};
   const keys = Object.keys(vars);
   if (out.allowed && keys.length > 0) {

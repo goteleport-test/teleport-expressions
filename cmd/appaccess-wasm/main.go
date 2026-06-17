@@ -70,13 +70,18 @@ func evaluate(this js.Value, args []js.Value) any {
 			"denyReason": h.DenyReason,
 		})
 	}
+	evaluatedRoles := make([]any, 0, len(res.EvaluatedRoles))
+	for _, r := range res.EvaluatedRoles {
+		evaluatedRoles = append(evaluatedRoles, r)
+	}
 	return map[string]any{
-		"allowed":     res.Allowed,
-		"vars":        vars,
-		"allowCode":   res.AllowCode,
-		"allowReason": res.AllowReason,
-		"denyKind":    res.DenyKind,
-		"denyHints":   denyHints,
+		"allowed":        res.Allowed,
+		"vars":           vars,
+		"allowCode":      res.AllowCode,
+		"allowReason":    res.AllowReason,
+		"denyKind":       res.DenyKind,
+		"denyHints":      denyHints,
+		"evaluatedRoles": evaluatedRoles,
 	}
 }
 
