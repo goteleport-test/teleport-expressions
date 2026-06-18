@@ -106,6 +106,16 @@
         "name": "anti-pattern (commented out)",
         "rule": "role_name: developer\napp_resources:\n  - paths:\n      - \"/api/v4/projects/{project}/**\"\n      # - \"/api/status\"\n      #   {project} not bound for this path\n    where: contains(user.traits[\"allowed_projects\"], vars.project)",
         "input": "request:\n  method: GET\n  path: /api/v4/projects/alpha/issues\nidentity:\n  name: alice\n  roles: [developer]\n  traits:\n    allowed_projects: [alpha, beta]"
+      },
+      {
+        "name": "sugared carve-out (paths + where)",
+        "rule": "role_name: developer\napp_resources:\n  # Allow all of /files, then carve out the\n  # /files/secret subtree with a negated\n  # path.match in where. paths set the\n  # territory, where removes a slice.\n  - paths: [\"/files/**\"]\n    where: '!path.match(literal(\"files\", literal(\"secret\", greedy())))'",
+        "input": "request:\n  method: GET\n  path: /files/a\nidentity:\n  name: bob\n  roles: [developer]"
+      },
+      {
+        "name": "carve-out that decodes too",
+        "rule": "role_name: developer\napp_resources:\n  # Give the where match the same\n  # decode_iterations as url_decoding, or\n  # the load fails.\n  - paths: [\"/files/**\"]\n    where: '!path.match(literal(\"files\", literal(\"secret\", greedy())), decode_iterations(1))'\n    url_decoding:\n      decode_iterations: 1",
+        "input": "request:\n  method: GET\n  path: /files/secret%2Fx\nidentity:\n  name: bob\n  roles: [developer]"
       }
     ]
   },
@@ -146,6 +156,11 @@
         "name": "decode in the predicate, no YAML",
         "rule": "role_name: developer\napp_resources:\n  # The bare predicate carries decode in\n  # the call itself: decode_iterations(1).\n  # No url_decoding YAML, so the rule is\n  # self-contained and ports to code.\n  - pred: path.match(literal(\"files\", capture(\"x\", glob())), decode_iterations(1))",
         "input": "request:\n  method: GET\n  path: /files/a%2Fb\nidentity:\n  name: bob\n  roles: [developer]"
+      },
+      {
+        "name": "mismatched decode opts is an error",
+        "rule": "role_name: developer\napp_resources:\n  # Every path.match must decode the same\n  # way, or a negation could decode deeper\n  # than the positive match and slip past.\n  - pred: |-\n      path.match(literal(\"files\", greedy()), decode_iterations(1)) &&\n      !path.match(literal(\"files\", literal(\"secret\", greedy())), decode_iterations(2))",
+        "input": "request:\n  method: GET\n  path: /files/a\nidentity:\n  name: bob\n  roles: [developer]"
       }
     ]
   },
