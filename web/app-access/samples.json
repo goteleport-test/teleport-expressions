@@ -141,6 +141,11 @@
         "name": "decode then allow residual %",
         "rule": "role_name: developer\napp_resources:\n  # decode_iterations and allow_percent\n  # combine: decode once, then admit any\n  # leftover %.\n  - paths: [\"/files/{x}\"]\n    url_decoding:\n      decode_iterations: 1\n      allow_percent: true",
         "input": "request:\n  method: GET\n  path: /files/a%252Fb\nidentity:\n  name: bob\n  roles: [developer]"
+      },
+      {
+        "name": "decode in the predicate, no YAML",
+        "rule": "role_name: developer\napp_resources:\n  # The bare predicate carries decode in\n  # the call itself: decode_iterations(1).\n  # No url_decoding YAML, so the rule is\n  # self-contained and ports to code.\n  - pred: path.match(literal(\"files\", capture(\"x\", glob())), decode_iterations(1))",
+        "input": "request:\n  method: GET\n  path: /files/a%2Fb\nidentity:\n  name: bob\n  roles: [developer]"
       }
     ]
   },
