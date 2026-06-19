@@ -165,6 +165,26 @@
     ]
   },
   {
+    "topic": "root paths",
+    "examples": [
+      {
+        "name": "root: several first segments in one tree",
+        "rule": "role_name: developer\napp_resources:\n  - where: |\n      path.match(root(\n          literal(\"api\", greedy()),\n          literal(\"admin\", greedy())))",
+        "input": "request:\n  method: GET\n  path: /admin/settings\nidentity:\n  name: bob\n  roles: [developer]"
+      },
+      {
+        "name": "root: a path under no root is denied",
+        "rule": "role_name: developer\napp_resources:\n  - where: |\n      path.match(root(\n          literal(\"api\", greedy()),\n          literal(\"admin\", greedy())))",
+        "input": "request:\n  method: GET\n  path: /public/x\nidentity:\n  name: bob\n  roles: [developer]"
+      },
+      {
+        "name": "root: nested anywhere but the top is a load error",
+        "rule": "role_name: developer\napp_resources:\n  - where: |\n      path.match(literal(\"files\",\n          root(literal(\"a\"), literal(\"b\"))))",
+        "input": "request:\n  method: GET\n  path: /files/a\nidentity:\n  name: bob\n  roles: [developer]"
+      }
+    ]
+  },
+  {
     "topic": "url decoding",
     "examples": [
       {
