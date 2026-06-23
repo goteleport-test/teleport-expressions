@@ -188,9 +188,14 @@
     "topic": "trailing slash",
     "examples": [
       {
-        "name": "optional_slash: match with or without a trailing slash",
-        "rule": "role_name: developer\napp_resources:\n  - where: |\n      path.match(literal(\"files\",\n          optional_slash()))",
+        "name": "optional(slash()): match with or without a trailing slash",
+        "rule": "role_name: developer\napp_resources:\n  - where: |\n      path.match(literal(\"files\",\n          optional(slash())))",
         "input": "request:\n  method: GET\n  path: /files/\nidentity:\n  name: bob\n  roles: [developer]"
+      },
+      {
+        "name": "optional(literal(...)): an optional trailing subtree",
+        "rule": "role_name: developer\napp_resources:\n  # The path may end at files, or carry the\n  # optional reports tail, from one tree with\n  # no duplicated prefix.\n  - where: |\n      path.match(literal(\"files\",\n          optional(literal(\"reports\"))))",
+        "input": "request:\n  method: GET\n  path: /files/reports\nidentity:\n  name: bob\n  roles: [developer]"
       },
       {
         "name": "slash: a trailing slash is required",

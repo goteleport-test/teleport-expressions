@@ -708,18 +708,18 @@
     "topic": "trailing slash",
     "examples": [
       {
-        "name": "optional_slash: match with or without a trailing slash (GET /files/)",
-        "rule": "role_name: developer\napp_resources:\n    - where: |-\n        path.match(literal(\"files\",\n            optional_slash()))",
+        "name": "optional: match with or without a trailing slash (GET /files/)",
+        "rule": "role_name: developer\napp_resources:\n    - where: |-\n        path.match(literal(\"files\",\n            optional(slash())))",
         "input": "request:\n    method: GET\n    path: /files/\nidentity:\n    name: bob\n    roles:\n        - developer"
       },
       {
-        "name": "optional_slash: match with or without a trailing slash (GET /files)",
-        "rule": "role_name: developer\napp_resources:\n    - where: |-\n        path.match(literal(\"files\",\n            optional_slash()))",
+        "name": "optional: match with or without a trailing slash (GET /files)",
+        "rule": "role_name: developer\napp_resources:\n    - where: |-\n        path.match(literal(\"files\",\n            optional(slash())))",
         "input": "request:\n    method: GET\n    path: /files\nidentity:\n    name: bob\n    roles:\n        - developer"
       },
       {
-        "name": "optional_slash: match with or without a trailing slash (GET /files/x)",
-        "rule": "role_name: developer\napp_resources:\n    - where: |-\n        path.match(literal(\"files\",\n            optional_slash()))",
+        "name": "optional: match with or without a trailing slash (GET /files/x)",
+        "rule": "role_name: developer\napp_resources:\n    - where: |-\n        path.match(literal(\"files\",\n            optional(slash())))",
         "input": "request:\n    method: GET\n    path: /files/x\nidentity:\n    name: bob\n    roles:\n        - developer"
       },
       {

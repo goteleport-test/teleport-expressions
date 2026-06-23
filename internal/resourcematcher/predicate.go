@@ -68,6 +68,22 @@ func allowsEncodedSlash(opts []Option) bool {
 	return false
 }
 
+// encodedBlocked reports whether the path carries an encoded char that no opt
+// admits, in which case a match must fail closed. It is the one gate both
+// path.match and Match consult, so the predicate surface and the Go surface
+// cannot drift on which paths an encoded char rejects.
+func encodedBlocked(tokens []string, opts []Option) bool {
+	if allowsEncodedSlash(opts) {
+		return false
+	}
+	for _, tok := range tokens {
+		if strings.ContainsRune(tok, '%') {
+			return true
+		}
+	}
+	return false
+}
+
 // env is the evaluation environment threaded through one predicate evaluation.
 // The vars map is the channel between a matcher and a later identity condition:
 // a path.match call writes the segments its captures bind, and a vars.<name>
@@ -193,13 +209,9 @@ func newParser() (*typical.CachedParser[env, bool], error) {
 				if !ok {
 					return false, nil
 				}
-				if !allowsEncodedSlash(opts) {
-					for _, tok := range tokens {
-						if strings.ContainsRune(tok, '%') {
-							e.state.encodedNotAllowed = true
-							return false, nil
-						}
-					}
+				if encodedBlocked(tokens, opts) {
+					e.state.encodedNotAllowed = true
+					return false, nil
 				}
 				if matched, caps := Eval(tokens, root); matched {
 					for k, v := range caps {
@@ -259,15 +271,19 @@ func newParser() (*typical.CachedParser[env, bool], error) {
 			"greedy": typical.UnaryVariadicFunction[env](func(_ ...*Node) (*Node, error) {
 				return Greedy(), nil
 			}),
-			// Trailing-slash terminals. slash() matches the empty segment a
-			// final "/" produces, and optional_slash() matches with or without
-			// it. They replace the empty-literal pun, so a literal never carries
-			// empty text.
+			// slash() matches the empty segment a final "/" produces. It replaces
+			// the empty-literal pun, so a literal never carries empty text.
 			"slash": typical.UnaryVariadicFunction[env](func(_ ...*Node) (*Node, error) {
 				return Slash(), nil
 			}),
-			"optional_slash": typical.UnaryVariadicFunction[env](func(_ ...*Node) (*Node, error) {
-				return OptionalSlash(), nil
+			// optional() makes a trailing subtree optional: the path may end at
+			// this node, or one of the children matches the remainder. So
+			// optional(slash()) matches "/foo" and "/foo/" alike, and
+			// optional(literal("reports")) matches "/files" and "/files/reports"
+			// from one tree with no duplicated prefix. The skip branch binds
+			// nothing, so a capture inside an optional is never guaranteed.
+			"optional": typical.UnaryVariadicFunction[env](func(children ...*Node) (*Node, error) {
+				return Optional(children...)
 			}),
 			// root is the synthetic top node, the one way to give a tree several
 			// first segments. It folds several root paths into one path.match,
