@@ -1,8 +1,9 @@
 description: npm scoped package keeps its literal "@" raw
 app_resources_expression:
-    # A scoped npm package is /@scope%2fname.
+    # allow_encoded now opts the match in. A
+    # scoped npm package is /@scope%2fname;
     # capture_encoded binds it raw, so the
-    # "@" is forwarded as "@", never %40.
+    # "@" stays "@", never %40.
     - |-
       path.match(literal("registry",
           capture_encoded("package", set("/"))),
