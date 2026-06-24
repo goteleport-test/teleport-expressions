@@ -199,12 +199,12 @@
       },
       {
         "name": "GitLab project id, plain or encoded, in one node",
-        "rule": "role_name: developer\napp_resources_expression:\n  # One capture_encoded binds a plain id or\n  # an encoded group/project in one node.\n  # allows /api/v4/projects/123/issues\n  # allows /api/v4/projects/g%2Fp/issues\n  - |-\n    path.match(literal(\"api/v4/projects\",\n        capture_encoded(\"project\", set(\"/\"), greedy())),\n    allow_encoded(set(\"/\")))",
+        "rule": "role_name: developer\napp_resources_expression:\n  # One capture_encoded binds a plain id or\n  # an encoded group/project in one node.\n  # allows project 123\n  # allows project mygroup%2Fmyproject\n  - |-\n    path.match(literal(\"api/v4/projects\",\n        capture_encoded(\"project\", set(\"/\"), greedy())),\n    allow_encoded(set(\"/\")))",
         "input": "request:\n    method: GET\n    path: /api/v4/projects/123/issues\nidentity:\n    name: bob\n    roles:\n        - developer"
       },
       {
         "name": "encoded_literal pins one group/project by its decoded value",
-        "rule": "role_name: developer\napp_resources_expression:\n  # encoded_literal matches one segment by\n  # its decoded value, in either hex case\n  # (%2F or %2f).\n  # allows /api/v4/projects/g%2Fp/issues\n  # denies /api/v4/projects/x%2Fy/issues\n  - |-\n    path.match(literal(\"api/v4/projects\",\n        encoded_literal(\"mygroup/myproject\", set(\"/\"),\n            literal(\"issues\"))),\n    allow_encoded(set(\"/\")))",
+        "rule": "role_name: developer\napp_resources_expression:\n  # encoded_literal matches one segment by\n  # its decoded value, in either hex case\n  # (%2F or %2f).\n  # allows project mygroup%2Fmyproject\n  # denies project other%2Fthing\n  - |-\n    path.match(literal(\"api/v4/projects\",\n        encoded_literal(\"mygroup/myproject\", set(\"/\"),\n            literal(\"issues\"))),\n    allow_encoded(set(\"/\")))",
         "input": "request:\n    method: GET\n    path: /api/v4/projects/mygroup%2Fmyproject/issues\nidentity:\n    name: bob\n    roles:\n        - developer"
       },
       {
