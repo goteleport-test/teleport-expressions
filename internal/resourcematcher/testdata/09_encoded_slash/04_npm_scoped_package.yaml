@@ -1,6 +1,6 @@
 description: npm scoped package keeps its literal "@" raw
 app_resources_expression:
-    # An npm id is /@scope%2fname.
+    # A scoped npm package is /@scope%2fname.
     # capture_encoded binds it raw, so the
     # "@" is forwarded as "@", never %40.
     - |-
