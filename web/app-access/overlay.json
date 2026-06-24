@@ -35,6 +35,7 @@
     "05_combination/additive_list_two_rules.yaml",
     "05_combination/sugared_carve_out_paths_where.yaml",
     "05_combination/anti_pattern_commented_out.yaml",
+    "06_carve_outs/glob_without_carve_out_sugar.yaml",
     "06_carve_outs/glob_without_exclude_single_segments.yaml",
     "06_carve_outs/greedy_without_exclude_subtrees_string_sugar.yaml",
     "06_carve_outs/greedy_except_exact_segment_subtree_still_allowed.yaml",
