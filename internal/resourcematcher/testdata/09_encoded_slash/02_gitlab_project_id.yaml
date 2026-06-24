@@ -3,7 +3,7 @@ app_resources_expression:
     # allow_encoded opts in the encoded
     # separator. One capture_encoded binds
     # a plain id (123) or an encoded
-    # group/project, no OR-doubling.
+    # group/project.
     - |-
       path.match(literal("api/v4/projects",
           capture_encoded("project", set("/"), greedy())),
