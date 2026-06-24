@@ -99,7 +99,7 @@
     "examples": [
       {
         "name": "slash: a trailing slash is required",
-        "rule": "role_name: developer\napp_resources_expression:\n  - path.match(literal(\"files\", slash()))",
+        "rule": "role_name: developer\napp_resources:\n  - paths:\n      - /files/",
         "input": "request:\n    method: GET\n    path: /files\nidentity:\n    name: bob\n    roles:\n        - developer"
       },
       {
