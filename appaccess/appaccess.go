@@ -145,7 +145,7 @@ type desugaredDoc struct {
 // Desugar lowers a role's sugared app_resources rules to bare predicate
 // strings and returns the role as app_resources_expression YAML. Each
 // declarative rule collapses into one predicate over the path, method, and
-// identity, with the allow code lowered to a set_allow_code call. Any rule the
+// identity, with the allow code lowered to an allow_code wrapper. Any rule the
 // author already wrote under app_resources_expression passes through after the
 // lowered ones. It lets the web page show the predicate a declarative rule
 // compiles to.
